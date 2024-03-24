@@ -16,19 +16,27 @@ impl ToString for PatternMessage {
         let serialized_pattern = self
             .pattern
             .iter()
-            .map(|p| p.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<String>>()
             .join("");
+
+        let should_quote = serialized_pattern.starts_with(".") || !self.declarations.is_empty();
+        let serialized_pattern: String = if should_quote {
+            format!("{{{{{}}}}}", serialized_pattern)
+        } else {
+            serialized_pattern
+        };
+
+        if self.declarations.is_empty() {
+            return serialized_pattern;
+        }
+
         let serialized_declarations = self
             .declarations
             .iter()
-            .map(|d| d.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<String>>()
             .join("\n");
-
-        if serialized_declarations.is_empty() {
-            return serialized_pattern;
-        }
 
         format!("{}\n\n{}", serialized_declarations, serialized_pattern)
     }
@@ -40,6 +48,7 @@ pub struct SelectMessage {
     pub selectors: Vec<Expression>,
     pub variants: Vec<Variant>,
 }
+
 
 pub enum Declaration {
     Input(InputDeclaration),
@@ -99,6 +108,33 @@ impl ToString for UnsupportedStatement {
 pub struct Variant {
     pub keys: Vec<VariantKey>,
     pub value: Vec<PatternElement>,
+}
+
+impl ToString for Variant {
+    fn to_string(&self) -> String {
+
+        let serialized_keys = self
+            .keys
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+            .join(" ");
+
+
+        format!(
+            "{} => {}",
+            self.keys
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>()
+                .join(", "),
+            self.value
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>()
+                .join("")
+        )
+    }
 }
 
 pub enum VariantKey {
@@ -255,7 +291,7 @@ pub struct Attribute {
 impl ToString for Attribute {
     fn to_string(&self) -> String {
         match &self.value {
-            Some(v) => format!("{}={}", self.name, v.to_string()),
+            Some(v) => format!("@{}={}", self.name, v.to_string()),
             None => self.name.clone(),
         }
     }
@@ -311,7 +347,7 @@ impl ToString for FunctionAnnotation {
             self.name,
             self.options
                 .iter()
-                .map(|v| v.to_string())
+                .map(ToString::to_string)
                 .collect::<Vec<String>>()
                 .join(" ")
         )
@@ -339,7 +375,7 @@ impl ToString for Markup {
                 let serialized_options = self
                     .options
                     .iter()
-                    .map(|o| o.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(" ");
                 return format!("{{#{} {} }}", self.name, serialized_options);
@@ -354,7 +390,7 @@ impl ToString for Markup {
                 let serialized_options = self
                     .options
                     .iter()
-                    .map(|o| o.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(" ");
                 return format!("{{#{} {} /}}", self.name, serialized_options);
@@ -400,6 +436,8 @@ impl ToString for OptionValue {
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use super::*;
 
     #[test]
@@ -501,5 +539,38 @@ mod tests {
         };
 
         assert_eq!(markup.to_string(), "{#foo bar=$baz /}");
+    }
+
+
+    #[test]
+    fn it_serializes_pattern_message() {
+        let empty_message = PatternMessage {
+            declarations: vec![],
+            pattern: vec![],
+        };
+
+        let hello_world_message = PatternMessage {
+            declarations: vec![],
+            pattern: vec![
+                PatternElement::Literal("Hello ".into()),
+                PatternElement::Expression(Expression::Variable(VariableExpression {
+                    annotation: None,
+                    arg: VariableRef { name: "name".into() },
+                    attributes: vec![],
+                })),
+                PatternElement::Literal("!".into()),
+            ]
+        };
+
+        let needs_to_be_quoted = PatternMessage {
+            declarations: vec![],
+            pattern: vec![
+                PatternElement::Literal(".local".into()),
+            ]
+        };
+
+        assert_eq!(empty_message.to_string(), "");
+        assert_eq!(hello_world_message.to_string(), "Hello {$name}!");
+        assert_eq!(needs_to_be_quoted.to_string(), "{{.local}}");
     }
 }
