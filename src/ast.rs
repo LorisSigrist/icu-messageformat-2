@@ -8,7 +8,30 @@ pub enum Message {
 /// A message without selectors and with a single pattern
 pub struct PatternMessage {
     pub declarations: Vec<Declaration>,
-    pub pattern: Pattern,
+    pub pattern: Vec<PatternElement>,
+}
+
+impl ToString for PatternMessage {
+    fn to_string(&self) -> String {
+        let serialized_pattern = self
+            .pattern
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<String>>()
+            .join("");
+        let serialized_declarations = self
+            .declarations
+            .iter()
+            .map(|d| d.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        if serialized_declarations.is_empty() {
+            return serialized_pattern;
+        }
+
+        format!("{}\n\n{}", serialized_declarations, serialized_pattern)
+    }
 }
 
 /// A message that includes selectors
@@ -24,15 +47,37 @@ pub enum Declaration {
     UnsupportedStatement(UnsupportedStatement),
 }
 
+impl ToString for Declaration {
+    fn to_string(&self) -> String {
+        match self {
+            Declaration::Input(i) => i.to_string(),
+            Declaration::Local(l) => l.to_string(),
+            Declaration::UnsupportedStatement(u) => u.to_string(),
+        }
+    }
+}
+
 pub struct InputDeclaration {
     /// The name of an InputDeclaration MUST be the same as the name in the VariableRef of its VariableExpression value
     pub name: String,
     pub value: VariableExpression,
 }
 
+impl ToString for InputDeclaration {
+    fn to_string(&self) -> String {
+        format!(".input {} = {}", self.name, self.value.to_string())
+    }
+}
+
 pub struct LocalDeclaration {
     pub name: String,
     pub value: Expression,
+}
+
+impl ToString for LocalDeclaration {
+    fn to_string(&self) -> String {
+        format!(".local {} = {}", self.name, self.value.to_string())
+    }
 }
 
 pub struct UnsupportedStatement {
@@ -41,9 +86,19 @@ pub struct UnsupportedStatement {
     pub expressions: Vec<Expression>,
 }
 
+impl ToString for UnsupportedStatement {
+    fn to_string(&self) -> String {
+        format!(
+            ".{} {}",
+            self.keyword,
+            self.body.clone().unwrap_or("".into())
+        )
+    }
+}
+
 pub struct Variant {
     pub keys: Vec<VariantKey>,
-    pub value: Pattern,
+    pub value: Vec<PatternElement>,
 }
 
 pub enum VariantKey {
@@ -81,12 +136,20 @@ impl ToString for CatchallKey {
     }
 }
 
-pub type Pattern = Vec<PatternElement>;
-
 pub enum PatternElement {
     Literal(String),
     Expression(Expression),
     Markup(Markup),
+}
+
+impl ToString for PatternElement {
+    fn to_string(&self) -> String {
+        match self {
+            PatternElement::Literal(l) => l.to_string(),
+            PatternElement::Expression(e) => e.to_string(),
+            PatternElement::Markup(m) => m.to_string(),
+        }
+    }
 }
 
 pub enum Expression {
@@ -166,7 +229,7 @@ pub struct FunctionExpression {
 
 impl ToString for FunctionExpression {
     fn to_string(&self) -> String {
-        self.annotation.to_string() //TODO include attributes
+        format!("{{{}}}", self.annotation.to_string()) //TODO include attributes
     }
 }
 
@@ -234,7 +297,7 @@ impl ToString for UnsupportedAnnotation {
 
 pub struct FunctionAnnotation {
     pub name: String,
-    pub options: Vec<OptionValue>,
+    pub options: Vec<MFOption>,
 }
 
 impl ToString for FunctionAnnotation {
@@ -258,10 +321,49 @@ impl ToString for FunctionAnnotation {
 pub struct Markup {
     pub kind: MarkupKind,
     pub name: String,
-    pub options: Vec<OptionValue>,
+    pub options: Vec<MFOption>,
 
     /// Attributes are reserved for future standardization
     pub attributes: Vec<Attribute>,
+}
+
+impl ToString for Markup {
+    fn to_string(&self) -> String {
+        match self.kind {
+            // {#name} or {#name option1=value1 option2=value2 }
+            MarkupKind::Open => {
+                if self.options.is_empty() {
+                    return format!("{{#{}}}", self.name);
+                }
+
+                let serialized_options = self
+                    .options
+                    .iter()
+                    .map(|o| o.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ");
+                return format!("{{#{} {} }}", self.name, serialized_options);
+            }
+
+            // {#tag option1=value1 option2=value2 /}
+            MarkupKind::Standalone => {
+                if self.options.is_empty() {
+                    return format!("{{#{}/}}", self.name);
+                }
+
+                let serialized_options = self
+                    .options
+                    .iter()
+                    .map(|o| o.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ");
+                return format!("{{#{} {} /}}", self.name, serialized_options);
+            }
+
+            // {/name}
+            MarkupKind::Close => format!("{{/{}}}", self.name),
+        }
+    }
 }
 
 pub enum MarkupKind {
@@ -351,19 +453,15 @@ mod tests {
     #[test]
     fn it_serializes_a_variable_expression() {
         let expression_without_annotation = VariableExpression {
-            arg: VariableRef {
-                name: "foo".into(),
-            },
+            arg: VariableRef { name: "foo".into() },
             annotation: None,
             attributes: vec![],
         };
 
         assert_eq!(expression_without_annotation.to_string(), "{$foo}");
-        
+
         let expression_with_annotation = VariableExpression {
-            arg: VariableRef {
-                name: "foo".into(),
-            },
+            arg: VariableRef { name: "foo".into() },
             annotation: Some(Annotation::Function(FunctionAnnotation {
                 name: "bar".into(),
                 options: vec![],
@@ -372,5 +470,36 @@ mod tests {
         };
 
         assert_eq!(expression_with_annotation.to_string(), "{$foo :bar}");
+    }
+
+    #[test]
+    fn it_serializes_a_funciton_expression() {
+        let expression = FunctionExpression {
+            annotation: FunctionAnnotation {
+                name: "foo".into(),
+                options: vec![MFOption {
+                    name: "bar".into(),
+                    value: OptionValue::Variable(VariableRef { name: "baz".into() }),
+                }],
+            },
+            attributes: vec![],
+        };
+
+        assert_eq!(expression.to_string(), "{:foo bar=$baz}");
+    }
+
+    #[test]
+    fn it_serializes_standalone_markup() {
+        let markup = Markup {
+            kind: MarkupKind::Standalone,
+            name: "foo".into(),
+            options: vec![MFOption {
+                name: "bar".into(),
+                value: OptionValue::Variable(VariableRef { name: "baz".into() }),
+            }],
+            attributes: vec![],
+        };
+
+        assert_eq!(markup.to_string(), "{#foo bar=$baz /}");
     }
 }
