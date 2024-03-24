@@ -8,3 +8,12 @@ description = "This crate provides utilities for interacting with strings follow
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+enum_glob_use = "deny"
+pedandic = "deny"
+nursery = "deny"
+unwrap_used = "deny"

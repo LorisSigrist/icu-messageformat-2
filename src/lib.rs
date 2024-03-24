@@ -1,8 +1,7 @@
-mod parse;
 mod ast;
 mod errors;
 
-pub fn add(left: usize, right: usize) -> usize {
+pub const fn add(left: usize, right: usize) -> usize {
     left + right
 }
 

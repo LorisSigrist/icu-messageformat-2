@@ -328,8 +328,8 @@ pub enum AttributeValue {
 impl ToString for AttributeValue {
     fn to_string(&self) -> String {
         match self {
-            AttributeValue::Literal(l) => l.to_string(),
-            AttributeValue::Variable(v) => v.to_string(),
+            Self::Literal(l) => l.to_string(),
+            Self::Variable(v) => v.to_string(),
         }
     }
 }
@@ -401,7 +401,8 @@ impl ToString for Markup {
                     .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(" ");
-                return format!("{{#{} {} }}", self.name, serialized_options);
+
+                format!("{{#{} {} }}", self.name, serialized_options)
             }
 
             // {#tag option1=value1 option2=value2 /}
@@ -416,7 +417,8 @@ impl ToString for Markup {
                     .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(" ");
-                return format!("{{#{} {} /}}", self.name, serialized_options);
+
+                format!("{{#{} {} /}}", self.name, serialized_options)
             }
 
             // {/name}
@@ -451,8 +453,8 @@ pub enum OptionValue {
 impl ToString for OptionValue {
     fn to_string(&self) -> String {
         match self {
-            OptionValue::Literal(l) => l.to_string(),
-            OptionValue::Variable(v) => v.to_string(),
+            Self::Literal(l) => l.to_string(),
+            Self::Variable(v) => v.to_string(),
         }
     }
 }
