@@ -5,6 +5,15 @@ pub enum Message {
     Select(SelectMessage),
 }
 
+impl ToString for Message {
+    fn to_string(&self) -> String {
+        match self {
+            Message::Pattern(p) => p.to_string(),
+            Message::Select(s) => s.to_string(),
+        }
+    }
+}
+
 /// A message without selectors and with a single pattern
 pub struct PatternMessage {
     pub declarations: Vec<Declaration>,
@@ -49,6 +58,38 @@ pub struct SelectMessage {
     pub variants: Vec<Variant>,
 }
 
+impl ToString for SelectMessage {
+    fn to_string(&self) -> String {
+        let serialized_selectors = self
+            .selectors
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        let serialized_variants = self
+            .variants
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        let serialized_declarations = self
+            .declarations
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        let serialized_match = format!(".match {}\n{}", serialized_selectors, serialized_variants);
+
+        if self.declarations.is_empty() {
+            return serialized_match;
+        } else {
+            format!("{}\n{}", serialized_declarations, serialized_match)
+        }
+    }
+}
 
 pub enum Declaration {
     Input(InputDeclaration),
@@ -74,7 +115,7 @@ pub struct InputDeclaration {
 
 impl ToString for InputDeclaration {
     fn to_string(&self) -> String {
-        format!(".input {} = {}", self.name, self.value.to_string())
+        format!(".input {}={}", self.name, self.value.to_string())
     }
 }
 
@@ -85,7 +126,7 @@ pub struct LocalDeclaration {
 
 impl ToString for LocalDeclaration {
     fn to_string(&self) -> String {
-        format!(".local {} = {}", self.name, self.value.to_string())
+        format!(".local {}={}", self.name, self.value.to_string())
     }
 }
 
@@ -112,7 +153,6 @@ pub struct Variant {
 
 impl ToString for Variant {
     fn to_string(&self) -> String {
-
         let serialized_keys = self
             .keys
             .iter()
@@ -120,33 +160,27 @@ impl ToString for Variant {
             .collect::<Vec<String>>()
             .join(" ");
 
+        let serialized_pattern = self
+            .value
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+            .join("");
 
-        format!(
-            "{} => {}",
-            self.keys
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<String>>()
-                .join(", "),
-            self.value
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<String>>()
-                .join("")
-        )
+        format!("{} {{{{{}}}}}", serialized_keys, serialized_pattern)
     }
 }
 
 pub enum VariantKey {
     Literal(Literal),
-    Catchall(CatchallKey),
+    Catchall,
 }
 
 impl ToString for VariantKey {
     fn to_string(&self) -> String {
         match self {
             VariantKey::Literal(l) => l.to_string(),
-            VariantKey::Catchall(c) => c.to_string(),
+            VariantKey::Catchall => "*".into(),
         }
     }
 }
@@ -158,17 +192,6 @@ pub struct Literal {
 impl std::string::ToString for Literal {
     fn to_string(&self) -> String {
         self.value.clone()
-    }
-}
-
-// For the CatchallKey, a string value may be provided to retain an identifier.
-// This is always '*' in MessageFormat 2 syntax, but may vary in other formats.
-// This implementation omits this & always uses '*'.
-pub struct CatchallKey;
-
-impl ToString for CatchallKey {
-    fn to_string(&self) -> String {
-        "*".into()
     }
 }
 
@@ -541,7 +564,6 @@ mod tests {
         assert_eq!(markup.to_string(), "{#foo bar=$baz /}");
     }
 
-
     #[test]
     fn it_serializes_pattern_message() {
         let empty_message = PatternMessage {
@@ -555,22 +577,95 @@ mod tests {
                 PatternElement::Literal("Hello ".into()),
                 PatternElement::Expression(Expression::Variable(VariableExpression {
                     annotation: None,
-                    arg: VariableRef { name: "name".into() },
+                    arg: VariableRef {
+                        name: "name".into(),
+                    },
                     attributes: vec![],
                 })),
                 PatternElement::Literal("!".into()),
-            ]
+            ],
         };
 
         let needs_to_be_quoted = PatternMessage {
             declarations: vec![],
-            pattern: vec![
-                PatternElement::Literal(".local".into()),
-            ]
+            pattern: vec![PatternElement::Literal(".local".into())],
         };
 
         assert_eq!(empty_message.to_string(), "");
         assert_eq!(hello_world_message.to_string(), "Hello {$name}!");
         assert_eq!(needs_to_be_quoted.to_string(), "{{.local}}");
+    }
+
+    #[test]
+    fn it_serializes_select_message() {
+        let simple_message = SelectMessage {
+            selectors: vec![Expression::Variable(VariableExpression {
+                arg: VariableRef { name: "foo".into() },
+                annotation: None,
+                attributes: vec![],
+            })],
+
+            declarations: vec![],
+            variants: vec![
+                Variant {
+                    keys: vec![VariantKey::Literal(Literal { value: "1".into() })],
+                    value: vec![PatternElement::Literal("bar".into())],
+                },
+                Variant {
+                    keys: vec![VariantKey::Catchall],
+                    value: vec![PatternElement::Literal("baz".into())],
+                },
+            ],
+        };
+
+        let complex_message = SelectMessage {
+            selectors: vec![
+                Expression::Variable(VariableExpression {
+                    arg: VariableRef {
+                        name: "fist".into(),
+                    },
+                    annotation: None,
+                    attributes: vec![],
+                }),
+                Expression::Function(FunctionExpression {
+                    attributes: vec![],
+                    annotation: FunctionAnnotation {
+                        options: vec![],
+                        name: "second".into(),
+                    },
+                }),
+            ],
+            declarations: vec![Declaration::Local(LocalDeclaration {
+                name: "bar".into(),
+                value: Expression::Variable(VariableExpression {
+                    arg: VariableRef {
+                        name: "baz".into(),
+                    },
+                    annotation: None,
+                    attributes: vec![],
+                })
+            })],
+            variants: vec![
+                Variant {
+                    keys: vec![
+                        VariantKey::Literal(Literal { value: "1".into() }),
+                        VariantKey::Catchall,
+                    ],
+                    value: vec![PatternElement::Literal("bar".into())],
+                },
+                Variant {
+                    keys: vec![VariantKey::Catchall, VariantKey::Catchall],
+                    value: vec![PatternElement::Literal("baz".into())],
+                },
+            ],
+        };
+
+        assert_eq!(
+            simple_message.to_string(),
+            ".match {$foo}\n1 {{bar}}\n* {{baz}}"
+        );
+        assert_eq!(complex_message.to_string(),
+            ".local bar={$baz}\n.match {$fist} {:second}\n1 * {{bar}}\n* * {{baz}}"
+        )
     }
 }
