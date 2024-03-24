@@ -30,12 +30,10 @@ pub struct InputDeclaration {
     pub value: VariableExpression,
 }
 
-
 pub struct LocalDeclaration {
     pub name: String,
     pub value: Expression,
 }
-
 
 pub struct UnsupportedStatement {
     pub keyword: String,
@@ -98,12 +96,33 @@ pub enum Expression {
     Unsupported(UnsupportedExpression),
 }
 
+impl ToString for Expression {
+    fn to_string(&self) -> String {
+        match self {
+            Expression::Literal(l) => l.to_string(),
+            Expression::Variable(v) => v.to_string(),
+            Expression::Function(f) => f.to_string(),
+            Expression::Unsupported(u) => u.to_string(),
+        }
+    }
+}
+
 pub struct LiteralExpression {
     pub arg: Literal,
     pub annotation: Option<Annotation>,
 
     /// Attributes are reserved for future standardization
     pub attributes: Vec<Attribute>,
+}
+
+impl ToString for LiteralExpression {
+    fn to_string(&self) -> String {
+        //TODO include attributes
+        match &self.annotation {
+            Some(annotation) => format!("{{{} {}}}", self.arg.value, annotation.to_string()),
+            None => format!("{{{}}}", self.arg.value),
+        }
+    }
 }
 
 pub struct VariableExpression {
@@ -114,10 +133,28 @@ pub struct VariableExpression {
     pub attributes: Vec<Attribute>,
 }
 
+impl ToString for VariableExpression {
+    fn to_string(&self) -> String {
+        //TODO include attributes
+        match &self.annotation {
+            Some(annotation) => format!("{{{} {}}}", self.arg.to_string(), annotation.to_string()),
+            None => format!("{{{}}}", self.arg.to_string()),
+        }
+    }
+}
 
 pub enum Annotation {
     Function(FunctionAnnotation),
     Unsupported(UnsupportedAnnotation),
+}
+
+impl ToString for Annotation {
+    fn to_string(&self) -> String {
+        match self {
+            Annotation::Function(f) => f.to_string(),
+            Annotation::Unsupported(u) => u.to_string(),
+        }
+    }
 }
 
 pub struct FunctionExpression {
@@ -127,6 +164,12 @@ pub struct FunctionExpression {
     pub attributes: Vec<Attribute>,
 }
 
+impl ToString for FunctionExpression {
+    fn to_string(&self) -> String {
+        self.annotation.to_string() //TODO include attributes
+    }
+}
+
 pub struct UnsupportedExpression {
     pub annotation: UnsupportedAnnotation,
 
@@ -134,6 +177,11 @@ pub struct UnsupportedExpression {
     pub attributes: Vec<Attribute>,
 }
 
+impl ToString for UnsupportedExpression {
+    fn to_string(&self) -> String {
+        self.annotation.to_string() //TODO include attributes
+    }
+}
 
 /// Attributes are reserved for future standardization
 pub struct Attribute {
@@ -191,7 +239,19 @@ pub struct FunctionAnnotation {
 
 impl ToString for FunctionAnnotation {
     fn to_string(&self) -> String {
-        format!(":{} {}", self.name, self.options.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(" "))
+        if self.options.is_empty() {
+            return format!(":{}", self.name.clone());
+        }
+
+        format!(
+            ":{} {}",
+            self.name,
+            self.options
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+                .join(" ")
+        )
     }
 }
 
@@ -244,9 +304,7 @@ mod tests {
     fn it_serialized_a_variable_option() {
         let option = MFOption {
             name: "foo".into(),
-            value: OptionValue::Variable(VariableRef {
-                name: "bar".into()
-            })
+            value: OptionValue::Variable(VariableRef { name: "bar".into() }),
         };
 
         assert_eq!(option.to_string(), "foo=$bar");
@@ -257,10 +315,62 @@ mod tests {
         let option = MFOption {
             name: "foo".into(),
             value: OptionValue::Literal(Literal {
-                value: "bar".into()
-            })
+                value: "bar".into(),
+            }),
         };
 
         assert_eq!(option.to_string(), "foo=bar");
+    }
+
+    #[test]
+    fn it_serializes_a_literal_expression() {
+        let expression_without_annotation = LiteralExpression {
+            arg: Literal {
+                value: "foo".into(),
+            },
+            annotation: None,
+            attributes: vec![],
+        };
+
+        assert_eq!(expression_without_annotation.to_string(), "{foo}");
+
+        let expression_with_annotation = LiteralExpression {
+            arg: Literal {
+                value: "foo".into(),
+            },
+            annotation: Some(Annotation::Function(FunctionAnnotation {
+                name: "bar".into(),
+                options: vec![],
+            })),
+            attributes: vec![],
+        };
+
+        assert_eq!(expression_with_annotation.to_string(), "{foo :bar}");
+    }
+
+    #[test]
+    fn it_serializes_a_variable_expression() {
+        let expression_without_annotation = VariableExpression {
+            arg: VariableRef {
+                name: "foo".into(),
+            },
+            annotation: None,
+            attributes: vec![],
+        };
+
+        assert_eq!(expression_without_annotation.to_string(), "{$foo}");
+        
+        let expression_with_annotation = VariableExpression {
+            arg: VariableRef {
+                name: "foo".into(),
+            },
+            annotation: Some(Annotation::Function(FunctionAnnotation {
+                name: "bar".into(),
+                options: vec![],
+            })),
+            attributes: vec![],
+        };
+
+        assert_eq!(expression_with_annotation.to_string(), "{$foo :bar}");
     }
 }
