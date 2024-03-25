@@ -1,4 +1,6 @@
-use std::string::ToString;
+use std::{str::FromStr, string::ToString};
+
+use crate::errors::SyntaxError;
 
 pub enum Message {
     Pattern(PatternMessage),
@@ -189,9 +191,17 @@ pub struct Literal {
     pub value: String,
 }
 
-impl std::string::ToString for Literal {
+impl ToString for Literal {
     fn to_string(&self) -> String {
         self.value.clone()
+    }
+}
+
+impl FromStr for Literal {
+    type Err = SyntaxError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Literal { value: s.into() })
     }
 }
 
@@ -458,6 +468,7 @@ impl ToString for OptionValue {
         }
     }
 }
+
 
 #[cfg(test)]
 mod tests {
