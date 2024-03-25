@@ -1,4 +1,4 @@
-# ICU MessageFormat 2.0 Parser - Rustified
+# ICU MessageFormat 2.0 Parser
 
 This is a rust implementation of the ICU MessageFormat 2.0 specification. Very much work in progress.
 
