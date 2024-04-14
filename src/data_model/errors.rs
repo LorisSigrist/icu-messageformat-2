@@ -1,11 +1,12 @@
-// The errors that may occur
-// as specified in https://github.com/unicode-org/message-format-wg/blob/6d7b4ba213e686ff2d403d3025d38d76b42b75f7/spec/errors.md
+// See: https://github.com/unicode-org/message-format-wg/blob/6d7b4ba213e686ff2d403d3025d38d76b42b75f7/spec/errors.md
+
 
 // Syntax Errors Errors
 
 /// Syntax Errors occur when the syntax representation of a message is not well-formed.
 #[derive(Debug)]
 pub struct SyntaxError;
+
 
 // Data Model Errors
 
@@ -44,7 +45,6 @@ pub struct UnknownFunction;
 #[derive(Debug)]
 pub struct UnsupportedExpression;
 
-
 /// An Invalid Expression error occurs when a message includes an expression whose implementation-defined internal requirements produce an error during function resolution or when a function returns a value (such as null) that the implementation does not support.
 #[derive(Debug)]
 pub struct InvalidExpression;
@@ -61,8 +61,7 @@ pub struct UnsupportedStatement;
 pub struct SelectionError;
 
 
-
-// Formattin Errors
+// Formatting Errors
 
 /// Formatting Errors occur during the formatting of a resolved value, for example when encountering a value with an unsupported type or an internally inconsistent set of options.
 #[derive(Debug)]
