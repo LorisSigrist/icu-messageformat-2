@@ -1,6 +1,4 @@
 mod message;
-mod pattern_message;
-mod select_message;
 mod declaration;
 mod variant;
 mod pattern_element;
@@ -10,9 +8,7 @@ mod markup;
 mod annotation;
 mod primitives;
 
-pub use message::Message;
-pub use pattern_message::PatternMessage;
-pub use select_message::SelectMessage;
+pub use message::{Message, PatternMessage,SelectMessage};
 pub use declaration::{Declaration, LocalDeclaration, InputDeclaration, UnsupportedStatement};
 pub use variant::{Variant, VariantKey};
 pub use pattern_element::PatternElement;
